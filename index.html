@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1417">
+  <meta name="description" content="Head-mounted phone assistant for the Dix-Hallpike test and Epley manoeuvre in BPPV.">
+  <title>BPPV Assistant</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar" id="topbar">
+    <button class="icon-btn" id="back" aria-label="Back" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <h1 id="page-title">BPPV Assistant</h1>
+    <span class="sensor-pill" id="sensor-pill" title="Motion sensor status">sensors —</span>
+  </header>
+
+  <main>
+    <!-- HOME -->
+    <section class="screen" id="screen-home" data-title="BPPV Assistant">
+      <div class="hero">
+        <p class="eyebrow">Posterior canal BPPV</p>
+        <p class="lede">Strap the phone to the patient’s head. It guides the Dix-Hallpike, films the eyes for nystagmus, then steers each Epley position by head angle.</p>
+      </div>
+      <div class="actions">
+        <button class="card-btn primary" data-go="setup" data-proc="dh">
+          <span class="card-title">Dix-Hallpike test</span>
+          <span class="card-sub">Guided positioning · eye video · findings</span>
+        </button>
+        <button class="card-btn" data-go="setup" data-proc="epley" data-side="right">
+          <span class="card-title">Epley · Right ear</span>
+          <span class="card-sub">Angle-guided repositioning</span>
+        </button>
+        <button class="card-btn" data-go="setup" data-proc="epley" data-side="left">
+          <span class="card-title">Epley · Left ear</span>
+          <span class="card-sub">Angle-guided repositioning</span>
+        </button>
+      </div>
+      <nav class="links">
+        <button class="link-btn" data-go="sessions">Recordings</button>
+        <button class="link-btn" data-go="settings">Settings</button>
+        <button class="link-btn" data-go="help">How to use</button>
+      </nav>
+      <p class="fineprint">A clinical aid for trained examiners, not a diagnostic device. Recordings stay on this phone.</p>
+    </section>
+
+    <!-- SETUP -->
+    <section class="screen" id="screen-setup" data-title="Setup">
+      <div class="panel">
+        <label class="field">
+          <span>Patient ID (optional)</span>
+          <input id="patient" autocomplete="off" placeholder="e.g. MRD 12345">
+        </label>
+        <div class="field" id="side-field">
+          <span>Side</span>
+          <div class="seg" id="side-seg"></div>
+        </div>
+        <div class="field">
+          <span>Phone mount</span>
+          <div class="seg" id="mount-seg">
+            <button data-mount="goggle">Headset<small>screen faces eyes · records video</small></button>
+            <button data-mount="forehead">Forehead<small>screen faces you · no video</small></button>
+          </div>
+        </div>
+      </div>
+
+      <details class="panel" id="safety" open>
+        <summary>Safety screen</summary>
+        <p>Avoid or modify positioning with: cervical spine instability, recent neck injury or surgery, severe cervical spondylosis or RA of the neck, vertebrobasilar or carotid disease, recent retinal detachment surgery, unstable cardiac disease, or inability to lie flat.</p>
+        <label class="check"><input type="checkbox" id="safety-ok"> Screened: safe to proceed</label>
+      </details>
+
+      <div class="panel">
+        <h3>Motion sensors</h3>
+        <p class="status" id="sensor-status">Waiting for sensor data…</p>
+        <button class="btn" id="enable-sensors">Enable motion sensors</button>
+      </div>
+
+      <div class="panel" id="camera-panel">
+        <h3>Eye camera</h3>
+        <p class="hint">Place the phone in the headset with the front camera in line with both eyes. Check the framing before strapping it on.</p>
+        <div class="preview" id="preview-box" hidden>
+          <video id="preview" playsinline muted autoplay></video>
+          <div class="eye-guide" aria-hidden="true"><i></i><i></i></div>
+        </div>
+        <p class="status" id="camera-status"></p>
+        <button class="btn" id="check-camera">Check camera</button>
+      </div>
+
+      <button class="btn primary big" id="start">Start</button>
+      <p class="hint center" id="start-hint"></p>
+    </section>
+
+    <!-- RUN -->
+    <section class="screen run" id="screen-run" data-title="">
+      <div class="lightfield" id="lightfield">
+        <p>Light mode · tap to show controls</p>
+      </div>
+      <div class="guide" id="guide">
+        <div class="run-top">
+          <span id="run-progress"></span>
+          <span class="rec" id="run-rec" hidden>● REC <b id="run-rec-t">0:00</b></span>
+          <span id="run-rate"></span>
+        </div>
+        <h2 id="run-title"></h2>
+        <p class="run-instr" id="run-instr"></p>
+        <div class="run-main">
+          <canvas id="headviz" aria-label="Head position: current (solid) and target (dashed)"></canvas>
+          <div class="dial">
+            <svg viewBox="0 0 120 120" aria-hidden="true">
+              <circle cx="60" cy="60" r="52" class="track"/>
+              <circle cx="60" cy="60" r="52" class="fill" id="dial-fill"/>
+            </svg>
+            <div class="dial-text">
+              <b id="dial-main">—</b>
+              <span id="dial-sub"></span>
+            </div>
+          </div>
+        </div>
+        <div class="cue" id="run-cue" aria-live="polite"></div>
+        <div class="bars" id="bars">
+          <div class="bar" data-k="turn"><span>Rotate</span><div class="bar-track"><i class="zone"></i><i class="needle"></i></div><em></em></div>
+          <div class="bar" data-k="chin"><span>Chin</span><div class="bar-track"><i class="zone"></i><i class="needle"></i></div><em></em></div>
+          <div class="bar" data-k="tilt"><span>Tilt</span><div class="bar-track"><i class="zone"></i><i class="needle"></i></div><em></em></div>
+        </div>
+        <ol class="steps" id="run-steps"></ol>
+        <div class="demo" id="demo" hidden>
+          <b>Demo head</b>
+          <button class="btn small" id="demo-snap">Snap to target</button>
+          <label>Rotate <input type="range" id="demo-turn" min="-60" max="60" value="0"></label>
+          <label>Chin <input type="range" id="demo-chin" min="-60" max="60" value="0"></label>
+          <label>Tilt <input type="range" id="demo-tilt" min="-60" max="60" value="0"></label>
+        </div>
+        <div class="controls">
+          <button class="btn" id="run-pause">Pause</button>
+          <button class="btn" id="run-skip">Skip step</button>
+          <button class="btn" id="run-recal">Recalibrate</button>
+          <button class="btn" id="run-light">Light mode</button>
+          <button class="btn danger" id="run-abort">Stop</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- FINDINGS (Dix-Hallpike review) -->
+    <section class="screen" id="screen-findings" data-title="Dix-Hallpike findings">
+      <div id="findings-head" class="meta"></div>
+      <div id="findings-sides"></div>
+      <div class="panel" id="findings-summary"></div>
+      <div class="row">
+        <button class="btn" id="findings-copy">Copy summary</button>
+        <button class="btn" data-go="home">Done</button>
+      </div>
+    </section>
+
+    <!-- EPLEY SUMMARY -->
+    <section class="screen" id="screen-summary" data-title="Epley summary">
+      <div id="summary-head" class="meta"></div>
+      <div id="summary-videos"></div>
+      <div class="panel">
+        <h3>Positions</h3>
+        <table class="log" id="summary-log"></table>
+      </div>
+      <div class="panel advice">
+        <h3>After the manoeuvre</h3>
+        <ul>
+          <li>Post-manoeuvre postural restrictions are not required (AAO-HNS 2017).</li>
+          <li>Reassess with Dix-Hallpike, now or at follow-up in about a month; repeat the Epley if still positive.</li>
+          <li>Warn about possible brief imbalance, and about falls risk in older patients.</li>
+        </ul>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="summary-repeat">Repeat Epley</button>
+        <button class="btn" id="summary-retest">Retest Dix-Hallpike</button>
+        <button class="btn" data-go="home">Done</button>
+      </div>
+    </section>
+
+    <!-- SESSIONS -->
+    <section class="screen" id="screen-sessions" data-title="Recordings">
+      <ul class="sessions" id="sessions-list"></ul>
+      <p class="hint center" id="sessions-empty" hidden>No sessions yet.</p>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="screen" id="screen-settings" data-title="Settings">
+      <form class="panel settings" id="settings-form">
+        <h3>Positioning</h3>
+        <label class="num">Angle tolerance <input type="number" name="tolerance" min="5" max="30" step="1"><span>°</span></label>
+        <label class="num">Head hanging (extension) <input type="number" name="extension" min="0" max="40" step="5"><span>°</span></label>
+        <label class="num">Epley hold per position <input type="number" name="hold" min="10" max="180" step="5"><span>s</span></label>
+        <label class="num">Dix-Hallpike observation <input type="number" name="dhObserve" min="20" max="120" step="5"><span>s</span></label>
+        <label class="num">Observation after sitting up <input type="number" name="dhSitObserve" min="0" max="60" step="5"><span>s</span></label>
+        <label class="num">Rest between sides <input type="number" name="restBetween" min="0" max="300" step="10"><span>s</span></label>
+        <h3>Guidance</h3>
+        <label class="check"><input type="checkbox" name="voice"> Voice prompts</label>
+        <label class="check"><input type="checkbox" name="beeps"> Proximity beeps</label>
+        <label class="num">Voice speed <input type="number" name="voiceRate" min="0.6" max="1.6" step="0.1"><span>×</span></label>
+        <h3>Headset mode</h3>
+        <label class="check"><input type="checkbox" name="lightDefault"> Start in light mode (uniform screen light, no fixation target)</label>
+        <label class="num">Light level <input type="number" name="light" min="0" max="100" step="5"><span>%</span></label>
+        <label class="check"><input type="checkbox" name="recordEpley"> Record eyes during Epley</label>
+        <label class="num">Camera frame rate <input type="number" name="fps" min="24" max="120" step="1"><span>fps</span></label>
+        <h3>Testing</h3>
+        <label class="check"><input type="checkbox" name="demo"> Demo mode (simulated head on a desk or computer)</label>
+      </form>
+      <div class="row">
+        <button class="btn" id="settings-reset">Restore defaults</button>
+      </div>
+    </section>
+
+    <!-- HELP -->
+    <section class="screen prose" id="screen-help" data-title="How to use">
+      <h3>Mounting</h3>
+      <p><b>Headset (recommended):</b> put the phone in a VR-style headset (Cardboard-type) with the screen facing the eyes. The front camera films the eyes, and the uniform screen light acts like Frenzel goggles by removing the fixation target. You follow voice prompts and beeps.</p>
+      <p><b>Forehead:</b> strap the phone to the forehead, screen facing out, so you can read the angle display. There is no eye video in this mode.</p>
+      <h3>Calibration</h3>
+      <p>Sit the patient on the couch facing its foot end, head straight, looking ahead. The app calibrates after 2–3 seconds of stillness. All target angles are measured from this pose, so the patient must lie back along the couch.</p>
+      <h3>Dix-Hallpike</h3>
+      <ol>
+        <li>Turn the head 45° to the test side.</li>
+        <li>Lie the patient back briskly with the head hanging about 20° below the couch. Recording starts as they go down; the time to reach position is noted.</li>
+        <li>Observe (default 45 s), then sit up and watch for reversal.</li>
+        <li>Review the video at slow speed. Tap <i>Onset</i> and <i>End</i> to measure latency and duration, choose the pattern, and the app suggests the side to treat.</li>
+      </ol>
+      <h3>Epley</h3>
+      <p>Each position is reached when the head is within the angle tolerance. The hold timer only runs while the head stays there. Cues give the correction still needed, relative to the patient’s body: <i>rotate</i> left/right, <i>chin</i> up/down, <i>tilt</i> toward a shoulder.</p>
+      <h3>Reading the video</h3>
+      <p>The front camera shows the patient as you would see them facing them: the patient’s right eye is on the left of the image. Use the rotate button if the phone was mounted in landscape. Posterior canal BPPV gives upbeating nystagmus with the upper pole of the eye beating toward the lower (affected) ear.</p>
+      <h3>Accuracy</h3>
+      <p>Angles come from the phone’s gyroscope-based orientation fusion. Expect a few degrees of error, plus slow drift of rotation about the vertical over several minutes. Recalibrate if a session runs long.</p>
+    </section>
+  </main>
+
+  <video id="cam" class="cam-sink" playsinline muted autoplay></video>
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <template id="tpl-player">
+    <div class="player">
+      <div class="player-frame">
+        <video playsinline preload="metadata"></video>
+        <span class="side-tag left">Pt R</span><span class="side-tag right">Pt L</span>
+      </div>
+      <div class="chips markers"></div>
+      <div class="player-tools">
+        <button class="btn small" data-rate="0.25">¼×</button>
+        <button class="btn small" data-rate="0.5">½×</button>
+        <button class="btn small" data-rate="1">1×</button>
+        <button class="btn small" data-step="-1">◀ frame</button>
+        <button class="btn small" data-step="1">frame ▶</button>
+        <button class="btn small" data-zoom>Zoom</button>
+        <button class="btn small" data-rotate>Rotate</button>
+        <a class="btn small" data-download>Save video</a>
+      </div>
+    </div>
+  </template>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
