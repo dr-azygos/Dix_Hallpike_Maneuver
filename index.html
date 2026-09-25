@@ -42,6 +42,7 @@
         </button>
       </div>
       <nav class="links">
+        <button class="link-btn" id="manual-findings">Enter findings only</button>
         <button class="link-btn" data-go="sessions">Recordings</button>
         <button class="link-btn" data-go="settings">Settings</button>
         <button class="link-btn" data-go="help">How to use</button>
@@ -65,6 +66,13 @@
           <div class="seg" id="mount-seg">
             <button data-mount="goggle">Headset<small>screen faces eyes · records video</small></button>
             <button data-mount="forehead">Forehead<small>screen faces you · no video</small></button>
+          </div>
+        </div>
+        <div class="field" id="eye-field">
+          <span>Nystagmus</span>
+          <div class="seg" id="eye-seg">
+            <button data-eye="camera">Record video<small>front camera films the eyes</small></button>
+            <button data-eye="manual">Enter manually<small>you watch the eyes · tap what you see</small></button>
           </div>
         </div>
       </div>
@@ -123,6 +131,23 @@
           </div>
         </div>
         <div class="cue" id="run-cue" aria-live="polite"></div>
+        <div class="nys panel" id="nys" hidden>
+          <h3>Nystagmus · <span id="nys-side"></span></h3>
+          <div class="nys-time">
+            <button class="btn" data-nys="onset">Onset</button>
+            <button class="btn" data-nys="end">End</button>
+            <button class="btn" data-nys="reversal" hidden>Reversal seen</button>
+          </div>
+          <div class="chips" id="nys-pattern">
+            <button data-pat="upbeat-torsional">Upbeat torsional</button>
+            <button data-pat="downbeat">Downbeat</button>
+            <button data-pat="horizontal-geo">Horiz. geotropic</button>
+            <button data-pat="horizontal-apo">Horiz. apogeotropic</button>
+            <button data-pat="other">Other</button>
+            <button data-pat="none">None</button>
+          </div>
+          <p class="hint" id="nys-log">Tap Onset when nystagmus starts and End when it stops.</p>
+        </div>
         <div class="bars" id="bars">
           <div class="bar" data-k="turn"><span>Rotate</span><div class="bar-track"><i class="zone"></i><i class="needle"></i></div><em></em></div>
           <div class="bar" data-k="chin"><span>Chin</span><div class="bar-track"><i class="zone"></i><i class="needle"></i></div><em></em></div>
@@ -227,6 +252,8 @@
         <li>Observe (default 45 s), then sit up and watch for reversal.</li>
         <li>Review the video at slow speed. Tap <i>Onset</i> and <i>End</i> to measure latency and duration, choose the pattern, and the app suggests the side to treat.</li>
       </ol>
+      <h3>Without the camera</h3>
+      <p>Choose <b>Nystagmus → Enter manually</b> in setup, and watch the eyes yourself (Frenzel goggles or direct view). Use the forehead mount so you can see the screen. During the head-hanging observation, tap <i>Onset</i> and <i>End</i> and pick the pattern; latency and duration are worked out for you. Tap <i>Reversal seen</i> after sitting up. <b>Enter findings only</b> on the home screen records a test done without the app’s guidance.</p>
       <h3>Epley</h3>
       <p>Each position is reached when the head is within the angle tolerance. The hold timer only runs while the head stays there. Cues give the correction still needed, relative to the patient’s body: <i>rotate</i> left/right, <i>chin</i> up/down, <i>tilt</i> toward a shoulder.</p>
       <h3>Reading the video</h3>

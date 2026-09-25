@@ -22,6 +22,7 @@ No install and no build step. It is a static Progressive Web App: open it over H
 3. **Dix-Hallpike** (right, left, or both with a rest and recalibration in between):
    turn 45° → lie back briskly with the head hanging 20° (records; time-to-position and peak angular speed are logged) → observe 45 s → sit up, observe 20 s.
 4. **Findings**: video review with markers, pattern / latency / duration / reversal / fatigue. The interpretation offers **Start Epley** for the positive side.
+   **No camera?** Choose *Nystagmus → Enter manually* in setup (automatic with the forehead mount). During the observation, tap **Onset** and **End** and pick the pattern; latency and duration are calculated. Tap **Reversal seen** after sitting up. **Enter findings only** on the home screen records a test done without the app's guidance.
 5. **Epley**: turn 45° → head hanging → turn 90° to the other side → roll onto the side, nose 45° down → sit up → head central, chin down. The summary shows time to reach, hold, mean error and % on target for each position.
 
 Cues are phrased relative to the patient's body: *Rotate* left/right, *Chin* up/down, *Tilt* toward a shoulder. A proximity beep speeds up as the head nears the target; a chime means the head is on target.

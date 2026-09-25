@@ -1,5 +1,5 @@
 // Offline app shell. Bump VERSION when shipping changes.
-const VERSION = 'bppv-v1';
+const VERSION = 'bppv-v2';
 const SHELL = [
   './',
   'index.html',

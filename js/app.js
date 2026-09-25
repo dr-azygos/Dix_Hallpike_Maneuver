@@ -28,6 +28,7 @@ const DEFAULTS = {
   fps: 60,
   demo: false,
   mount: 'goggle',
+  eyeMode: 'camera',
 };
 let settings = { ...DEFAULTS };
 try {
@@ -125,7 +126,13 @@ function renderSetup() {
     .map(([v, l, sub]) => `<button data-side="${v}" class="${v === setup.side ? 'on' : ''}">${l}${sub ? `<small>${sub}</small>` : ''}</button>`)
     .join('');
   $$('#mount-seg button').forEach((b) => b.classList.toggle('on', b.dataset.mount === settings.mount));
-  $('#camera-panel').hidden = settings.mount !== 'goggle' || (!dh && !settings.recordEpley);
+  const eye = eyeMode();
+  $$('#eye-seg button').forEach((b) => {
+    b.classList.toggle('on', b.dataset.eye === eye);
+    b.disabled = b.dataset.eye === 'camera' && settings.mount !== 'goggle';
+  });
+  $('#eye-field').hidden = !dh;
+  $('#camera-panel').hidden = !wantsVideo();
   updateStartState();
 }
 
@@ -143,10 +150,24 @@ $('#mount-seg').addEventListener('click', (e) => {
   if (settings.mount !== 'goggle') stopPreview();
   renderSetup();
 });
+$('#eye-seg').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b || b.disabled) return;
+  settings.eyeMode = b.dataset.eye;
+  saveSettings();
+  if (settings.eyeMode !== 'camera') stopPreview();
+  renderSetup();
+});
 $('#safety-ok').addEventListener('change', updateStartState);
 
+// The camera faces the eyes only in the headset; on the forehead findings are always manual.
+function eyeMode() {
+  return settings.mount === 'goggle' ? settings.eyeMode : 'manual';
+}
+
 function wantsVideo() {
-  return settings.mount === 'goggle' && (setup.proc === 'dh' || settings.recordEpley);
+  if (settings.mount !== 'goggle') return false;
+  return setup.proc === 'dh' ? eyeMode() === 'camera' : settings.recordEpley;
 }
 
 function updateStartState() {
@@ -156,7 +177,9 @@ function updateStartState() {
     ? 'Complete the safety screen to start.'
     : !(tracker.live || settings.demo)
       ? 'Waiting for motion sensors.'
-      : settings.mount === 'goggle'
+      : setup.proc === 'dh' && eyeMode() === 'manual'
+        ? 'After Start, watch the eyes yourself and tap Onset / End on screen during the observation.'
+        : settings.mount === 'goggle'
         ? 'After Start, put the phone in the headset. Voice prompts will guide you.'
         : 'After Start, strap the phone to the forehead, screen facing you.';
   $('#start-hint').textContent = hint;
@@ -239,6 +262,7 @@ async function startProcedure() {
     patient: $('#patient').value.trim(),
     sides,
     mount: settings.mount,
+    manual: dh && !wantsVideo(),
     settings: { ...protocolCfg(), tolerance: settings.tolerance },
     videoIds: [],
     findings: {},
@@ -252,7 +276,7 @@ async function startProcedure() {
     .join('');
   $('#demo').hidden = !settings.demo;
   document.documentElement.style.setProperty('--light', settings.light + '%');
-  setLight(settings.mount === 'goggle' && settings.lightDefault && !settings.demo);
+  setLight(wantsVideo() && settings.lightDefault && !settings.demo);
   go('run');
   requestWakeLock();
 
@@ -276,7 +300,7 @@ function setLight(on) {
 $('#lightfield').addEventListener('click', () => {
   setLight(false);
   clearTimeout(setLight.t);
-  if (settings.lightDefault && settings.mount === 'goggle') setLight.t = setTimeout(() => setLight(true), 15000);
+  if (settings.lightDefault && wantsVideo()) setLight.t = setTimeout(() => setLight(true), 15000);
 });
 $('#run-light').addEventListener('click', () => setLight(true));
 $('#run-pause').addEventListener('click', (e) => {
@@ -306,7 +330,16 @@ function renderRun(u) {
       li.className = li.dataset.id === step.id ? 'now' : ids.includes(li.dataset.id) ? 'done' : '';
     });
     $('#run-pause').textContent = 'Pause';
+    const m = session?.manual && /^dh-(right|left)-(hang|sit)$/.exec(step.id);
+    $('#nys').hidden = !m;
+    nys = m ? { side: m[1], phase: m[2] } : null;
+    if (nys) {
+      $('#nys-side').textContent = `${cap(nys.side)} · ${nys.phase === 'hang' ? 'head hanging' : 'sitting up'}`;
+      $('[data-nys="reversal"]').hidden = nys.phase !== 'sit';
+      renderNys();
+    }
   }
+  if (nys) Object.assign(nys, { reached: u.reached, reachedAt: u.reachedAt });
   $('#run-progress').textContent = `Step ${u.index + 1} of ${u.total}`;
   $('#run-rate').textContent = `${Math.round(u.rate)}°/s`;
   $('#run-rec').hidden = u.rec == null;
@@ -367,6 +400,55 @@ function renderRun(u) {
     drawHead($('#headviz'), u.head, step.type === 'pose' ? step.target : null, u.inTol);
   }
 }
+
+// Manual nystagmus entry during the Dix-Hallpike observation.
+let nys = null;
+const nysOnset = {};
+const PATTERN_LABEL = {
+  'upbeat-torsional': 'upbeat torsional', downbeat: 'downbeat', 'horizontal-geo': 'horizontal geotropic',
+  'horizontal-apo': 'horizontal apogeotropic', other: 'other', none: 'none',
+};
+function renderNys() {
+  const f = session.findings[nys.side] || {};
+  $$('#nys-pattern button').forEach((b) => b.classList.toggle('on', b.dataset.pat === f.pattern));
+  $('[data-nys="onset"]').classList.toggle('on', f.latency != null);
+  $('[data-nys="end"]').classList.toggle('on', f.duration != null);
+  $('[data-nys="reversal"]').classList.toggle('on', !!f.reversal);
+  const bits = [];
+  if (f.pattern) bits.push(PATTERN_LABEL[f.pattern]);
+  if (f.latency != null) bits.push(`latency ${f.latency} s`);
+  if (f.duration != null) bits.push(`duration ${f.duration} s`);
+  if (f.reversal) bits.push('reversal');
+  if (f.latency != null && !f.pattern) bits.push('pick the pattern');
+  $('#nys-log').textContent = bits.length ? bits.join(' · ') : 'Tap Onset when nystagmus starts and End when it stops.';
+}
+$('#nys').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b || !nys) return;
+  const f = (session.findings[nys.side] ||= {});
+  const now = performance.now();
+  const act = b.dataset.nys;
+  if (act === 'onset') {
+    nysOnset[nys.side] = now;
+    f.latency = nys.reached ? +((now - nys.reachedAt) / 1000).toFixed(1) : 0;
+    f.duration = null;
+    if (f.pattern === 'none') f.pattern = '';
+    recorder.mark?.('Nystagmus onset');
+  } else if (act === 'end') {
+    if (nysOnset[nys.side] == null) return toast('Tap Onset first.');
+    f.duration = +((now - nysOnset[nys.side]) / 1000).toFixed(1);
+  } else if (act === 'reversal') {
+    f.reversal = !f.reversal;
+  } else if (b.dataset.pat) {
+    f.pattern = b.dataset.pat;
+    if (f.pattern === 'none') {
+      f.latency = f.duration = null;
+      delete nysOnset[nys.side];
+    }
+  }
+  beeper.tone(1200, 0.05, 0.1);
+  renderNys();
+});
 
 function fmtTime(s) {
   const m = Math.floor(s / 60);
@@ -455,7 +537,8 @@ function metaLine(s) {
   return [
     d.toLocaleString(),
     s.patient ? `Patient ${esc(s.patient)}` : null,
-    s.mount === 'goggle' ? 'Headset mount' : 'Forehead mount',
+    s.entryOnly ? 'Manual entry' : s.mount === 'goggle' ? 'Headset mount' : 'Forehead mount',
+    s.manual && !s.entryOnly ? 'Nystagmus entered manually' : null,
     s.aborted ? '<b>Stopped early</b>' : null,
   ].filter(Boolean).join(' · ');
 }
@@ -515,6 +598,14 @@ const PATTERNS = [
 
 function renderFindings(s, videos) {
   $('#findings-head').innerHTML = metaLine(s);
+  if (s.entryOnly) {
+    $('#findings-head').insertAdjacentHTML('beforeend',
+      `<label class="field" style="margin-top:10px"><span>Patient ID (optional)</span><input id="findings-patient" autocomplete="off" value="${esc(s.patient || '')}"></label>`);
+    $('#findings-patient').addEventListener('input', (e) => {
+      s.patient = e.target.value.trim();
+      persistFindings();
+    });
+  }
   const wrap = $('#findings-sides');
   wrap.innerHTML = '';
   for (const side of s.sides) {
@@ -526,7 +617,7 @@ function renderFindings(s, videos) {
       <h3>${cap(side)} Dix-Hallpike</h3>
       <p class="hint">${hang?.reachedAfter != null
         ? `Head-hanging position reached ${hang.reachedAfter}s after the step began · peak speed ${hang.peakRate}°/s · on target ${hang.inTolPct}% of observation`
-        : 'Position not recorded'}</p>`;
+        : s.entryOnly ? 'Findings entered without guided positioning.' : 'Position not recorded'}</p>`;
     const v = videos.find((x) => x.side === side);
     let video = null;
     if (v) {
@@ -551,7 +642,7 @@ function renderFindings(s, videos) {
       });
       card.append(mk);
     } else {
-      card.insertAdjacentHTML('beforeend', '<p class="hint">No eye video for this side.</p>');
+      card.insertAdjacentHTML('beforeend', `<p class="hint">${s.manual ? 'No video: findings entered by the examiner.' : 'No eye video for this side.'}</p>`);
     }
     const form = document.createElement('div');
     form.className = 'form-grid';
@@ -660,6 +751,26 @@ $('#summary-repeat').addEventListener('click', () => {
 $('#summary-retest').addEventListener('click', () => {
   setup = { proc: 'dh', side: session.sides[0] };
   go('setup');
+});
+
+$('#manual-findings').addEventListener('click', async () => {
+  session = {
+    id: store.uid(),
+    type: 'dh',
+    created: Date.now(),
+    patient: '',
+    sides: ['right', 'left'],
+    mount: null,
+    manual: true,
+    entryOnly: true,
+    videoIds: [],
+    findings: {},
+    log: [],
+  };
+  try {
+    await store.saveSession(session);
+  } catch { /* stays in memory */ }
+  renderFindings(session, []);
 });
 
 // ---------- sessions ----------

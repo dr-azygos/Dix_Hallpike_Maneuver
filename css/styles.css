@@ -40,6 +40,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; }
 body {
   background: var(--bg);
@@ -167,6 +168,12 @@ details.panel summary { font-weight: 600; cursor: pointer; margin-bottom: 8px; }
 .steps li.now { color: var(--accent-ink); background: var(--accent); border-color: transparent; }
 .controls { display: flex; flex-wrap: wrap; gap: 8px; }
 .controls .btn { flex: 1 1 110px; }
+.nys { margin-bottom: 12px; }
+.nys-time { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.nys-time .btn { min-height: 56px; font-size: 18px; font-weight: 650; }
+.nys-time .btn.on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.chips button.on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+#nys-log { margin: 4px 0 0; }
 .demo { display: grid; gap: 6px; padding: 12px; margin-bottom: 12px; border: 1px dashed var(--line); border-radius: 12px; font-size: 14px; }
 .demo label { display: grid; grid-template-columns: 60px 1fr; align-items: center; }
 

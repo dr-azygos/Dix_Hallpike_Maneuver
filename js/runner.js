@@ -129,6 +129,7 @@ export class Runner {
       held: s.held,
       still: s.still,
       reached: s.reached,
+      reachedAt: s.reachedAt,
       message: s.message,
       rate: this.tracker.rate,
       rec: this.recorder?.recording ? this.recorder.elapsed() : null,
